@@ -15,7 +15,8 @@ ret,thresh5 = cv.threshold(opening,0,1,cv.THRESH_TOZERO)
 
 # erosion = cv.erode(img,kernel,iterations = 5)
 # Displaying the image
+cv.imshow('image', img)
+cv.waitKey()
+
 cv.imshow('image', thresh5)
 cv.waitKey()
-# cv.imshow('image', img)
-# cv.waitKey()
