@@ -62,7 +62,47 @@ class Bubble:
         x = rho * np.cos(theta)
         y = rho * np.sin(theta)
         return x, y
-        
+    
+    def __get_height(self, cnt):
+        transpose= np.transpose(cnt)
+        height = np.amax(transpose, 2) - np.amin(transpose, 2)
+        return height[1]
+    
+    def __max_height(self, cntrs):
+        # Calculate maximum rectangle height
+        max_height = 0
+        for i in range(1, len(cntrs)):
+            h = self.__get_height(cntrs[i])
+            if h > max_height: max_height = h
+        print(max_height)
+        return max_height
+
+    def sort_cntrs(self, cntrs):
+        max_height = self.__max_height(cntrs)
+        # Sort the contours by y-value
+        by_y = self.__y_sorted(cntrs)
+        print(by_y)
+        line_y = list(by_y.keys())[0][1]      # first y
+        line = 1
+        by_line = {1:[]}
+
+        # Assign a line number to each contour
+        for key in by_y:
+            y = key[1]
+            if y > line_y + max_height:
+                line_y = y
+                line += 1
+                by_line[line] = []
+            by_line[line].append(key)
+        # print(by_line)
+        contours_sorted = [cntrs[0]]
+        # This will now sort automatically by line then by x
+        for key, val in by_line.items(): 
+            x_sorted= sorted(val,key=lambda x: x[0])
+            for point in x_sorted:
+                contours_sorted.append(cntrs[by_y[point]])
+        return contours_sorted
+
     def rotate_cnt(self, cnt, angle):
         # a_rotated = bubble.rotate_cnt(a_cnt, 90)
         # a_rotated = bubble.move_bubble(a_rotated,(500,500))
@@ -111,34 +151,39 @@ class Bubble:
         print(np.amax(norm))
     # def get_prob(self,cnt):
 
-    # def get_order(self,cntrs):
-    #     xtrm_point_list = {}
-    #     for i in range(1, len(cntrs)):
-    #         xtrm_point_list[self.get_extreme(cntrs[i])] = cntrs[i]
-    #     point_list = xtrm_point_list.keys()
-    #     x_sorted = sorted(point_list,key=lambda x: x[0])
-    #     y_sorted = sorted(point_list,key=lambda y: y[1])
-    #     order_to_match = []
-
-    #     while (len(x_sorted) != 0):
-
+    def __y_sorted(self,cntrs):
+        xtrm_point_list = {}
+        for i in range(1, len(cntrs)):
+            #xtrm_point_list[self.get_extreme(cntrs[i])] = cntrs[i]
+            xtrm_point_list[self.get_extreme(cntrs[i])] = i
+        point_list = xtrm_point_list.keys()
+        #x_sorted = sorted(point_list,key=lambda x: x[0])
+        y_sorted = sorted(point_list,key=lambda y: y[1])
+        sorted_dict = {i: xtrm_point_list[i] for i in y_sorted}
+        return sorted_dict
     
 def main():
     bubble = Bubble("bubbles.json")
-
     
     img = cv.imread("images/001.jpg",0)
     ret, thresh = cv.threshold(img, 127, 255, 0)
-    cnt, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+    cnt, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)\
+    
     cnt_norm = bubble.get_norm_cnt(cnt)
     cnt_scaled = bubble.scale_cnt(cnt_norm,2)
-    to_draw_1 = bubble.move_bubble(cnt_scaled,(500,500))
+    cnt_moved = bubble.move_bubble(cnt_scaled, (500, 500))
+    #print(cnt_scaled)
+    to_draw_1 = bubble.move_bubble(cnt_norm,(500,500))
+    sorted_cnt = bubble.sort_cntrs(cnt_moved)
+    #img = cv.imread("images/001.jpg",0)
+    for cnt in sorted_cnt:
+        vis = bubble.draw_cnt(img,cnt)
     
-    img = cv.imread("images/001.jpg",0)
-    # vis = bubble.draw_cnt(img,to_draw_1)
-    
+    #cv.circle(vis, (1500, 1500),8, (0, 255, 0) -1)
+    # cv.circle(vis, (1500, 10), 8, (0, 0, 255), -1)
+    # cv.imshow("hi", vis)
     #new_img = cv.cvtColor(np.ones_like(img), cv.COLOR_GRAY2BGR)
-    point_list = [bubble.get_extreme(i) for i in to_draw_1]
+    #point_list = [bubble.get_extreme(i) for i in to_draw_1]
 
     #draw bubbles with dots
     # for i in range(1, len(to_draw_1)):
@@ -147,7 +192,7 @@ def main():
     # cv.imshow("window", vis)
     # cv.waitKey()
 
-    bubble.scale_to_norm(to_draw_1)
+    #bubble.scale_to_norm(to_draw_1)
 
 
 main()
