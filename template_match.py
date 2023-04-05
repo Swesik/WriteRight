@@ -107,10 +107,29 @@ class Bubble:
     
     def scale_to_norm(self,cnt):
         norm = self.get_norm_cnt(cnt)
-        print(norm[0])
-        print(np.amax(norm))
-    # def get_prob(self,cnt):
-
+        transpose = np.transpose(norm[0])
+        scaling_factor = np.min(np.amax(transpose,2) - np.amin(transpose,2))
+        print(scaling_factor)
+        return self.scale_cnt(cnt,2000/scaling_factor)
+    
+    def get_prob(self,cnt, metric = "shape"):
+        to_ret = {}
+        cnt_norm = self.scale_to_norm(cnt)
+        for key,val in self.bubble_dict.items():
+            if metric == "shape":
+                val_norm = self.scale_to_norm(val)
+                print(type(cnt))
+                print(type(val))
+                print(type(cnt_norm))
+                print(type(val_norm))
+                # to_ret[key] = cv.matchShapes(cnt[0],val[0],1,0.0)
+                to_ret[key] = cv.matchShapes(cnt_norm[0],val_norm[0],1,0.0)
+            elif metric == "area":
+                to_ret[key] = cv.contourArea(val) - cv.contourArea(cnt_norm)
+            else:
+                return -1
+        return to_ret
+    
     # def get_order(self,cntrs):
     #     xtrm_point_list = {}
     #     for i in range(1, len(cntrs)):
@@ -146,8 +165,7 @@ def main():
     #     cv.circle(vis, bubble.get_extreme(to_draw_1[i]), 8, (0, 0, 255), -1)
     # cv.imshow("window", vis)
     # cv.waitKey()
-
-    bubble.scale_to_norm(to_draw_1)
+    bubble.get_prob(cnt)
 
 
 main()
