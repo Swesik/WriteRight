@@ -89,6 +89,7 @@ class Bubble:
         cv.drawContours(vis,cnt,-1,(0,0,0),6)
         cv.imshow(window_name, vis)
         cv.waitKey()
+        return vis
 
     def draw_cnt_colored(self,img,cnt,window_name = 'cnt'):
         h,w = img.shape
@@ -98,35 +99,54 @@ class Bubble:
             cv.drawContours(vis,cnt,i,(0,0,0),6)
         cv.imshow(window_name, vis)
         cv.waitKey()
+    
+    def get_extreme(self,cnt):
+        extLeft = tuple(cnt[cnt[:, :, 0].argmin()][0])
+        extTop = tuple(cnt[cnt[:, :, 1].argmin()][0])
+        return (extLeft[0],extTop[1])
+    
+    def scale_to_norm(self,cnt):
+        norm = self.get_norm_cnt(cnt)
+        print(norm[0])
+    # def get_prob(self,cnt):
 
+    # def get_order(self,cntrs):
+    #     xtrm_point_list = {}
+    #     for i in range(1, len(cntrs)):
+    #         xtrm_point_list[self.get_extreme(cntrs[i])] = cntrs[i]
+    #     point_list = xtrm_point_list.keys()
+    #     x_sorted = sorted(point_list,key=lambda x: x[0])
+    #     y_sorted = sorted(point_list,key=lambda y: y[1])
+    #     order_to_match = []
+
+    #     while (len(x_sorted) != 0):
+
+    
 def main():
     bubble = Bubble("bubbles.json")
 
-    # img = cv.imread("images/I_like_apples.jpg",0)
-    # ret, thresh = cv.threshold(img, 127, 255, 0)
-    # cnt, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-    # cnt = (cnt[0],cnt[1],cnt[2],cnt[3],cnt[4],cnt[5],cnt[6],cnt[7],cnt[8],cnt[9],cnt[10])
-    # cnt_norm = bubble.get_norm_cnt(cnt)
-    # cnt_scaled = bubble.scale_cnt(cnt_norm,5)
-    # cnt_rotated = bubble.rotate_cnt(cnt_scaled, 90)
-    # to_draw_1 = bubble.move_bubble(cnt_scaled,(500,500))
-    # to_draw_2 = bubble.move_bubble(cnt_rotated,(500,500))
-    # to_draw_3 = bubble.move_bubble(cnt_norm,(500,500))
-
+    
     img = cv.imread("images/001.jpg",0)
-    # bubble.draw_cnt(img_temp,to_draw_3)
-    # bubble.draw_cnt(img_temp,to_draw_1)
-    # bubble.draw_cnt(img_temp,to_draw_2)
+    ret, thresh = cv.threshold(img, 127, 255, 0)
+    cnt, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+    cnt_norm = bubble.get_norm_cnt(cnt)
+    cnt_scaled = bubble.scale_cnt(cnt_norm,2)
+    to_draw_1 = bubble.move_bubble(cnt_scaled,(500,500))
     
+    img = cv.imread("images/001.jpg",0)
+    # vis = bubble.draw_cnt(img,to_draw_1)
     
-    a_cnt = bubble.get_cnt("a")
-    a_rotated = bubble.rotate_cnt(a_cnt, 60)
-    a_rotated = bubble.move_bubble(a_rotated,(500,500))
-    # a_scaled = bubble.scale_cnt(a_cnt,2)
-    bubble.draw_cnt(img,a_rotated)
-    a_moved_2 = bubble.move_bubble(a_cnt,(500,500))
-    bubble.draw_cnt(img,a_moved_2)
-    ret = cv.matchShapes(a_moved_2[1],a_rotated[1],1,0.0)
-    print( ret )
+    #new_img = cv.cvtColor(np.ones_like(img), cv.COLOR_GRAY2BGR)
+    point_list = [bubble.get_extreme(i) for i in to_draw_1]
+
+    #draw bubbles with dots
+    # for i in range(1, len(to_draw_1)):
+    #     print(bubble.get_extreme(to_draw_1[i]))
+    #     cv.circle(vis, bubble.get_extreme(to_draw_1[i]), 8, (0, 0, 255), -1)
+    # cv.imshow("window", vis)
+    # cv.waitKey()
+
+    bubble.scale_to_norm(to_draw_1)
+
 
 main()
