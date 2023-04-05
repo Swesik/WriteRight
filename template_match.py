@@ -108,6 +108,7 @@ class Bubble:
     def scale_to_norm(self,cnt):
         norm = self.get_norm_cnt(cnt)
         print(norm[0])
+        print(np.amax(norm))
     # def get_prob(self,cnt):
 
     # def get_order(self,cntrs):
