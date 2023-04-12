@@ -185,16 +185,18 @@ class Bubble:
         cy = int(cy/tot_mass)
         return (cx,cy)
     
-    def __find_holes(self, letter):
+    def find_holes(self, letter):
         bubble = self.bubble_dict[letter]
         #find holes
-        point_list = [tuple(i[0][0]) for i in bubble]
+        point_list = [tuple(i[0][0]) for i in bubble[1:]]
         is_hole_list = []
         for point in point_list:
-            is_hole_list += sum([max(0,cv.pointPolygonTest(cntr, point, False)) for cntr in bubble]) > 0
+            point = (int(point[0]),int(point[1]))
+            # print(point)
+            is_hole_list.append(sum([max(0,cv.pointPolygonTest(cntr, point, False)) for cntr in bubble[1:]]) > 0)
         return is_hole_list
     
-    def get_metric(self,letter,cntr):
+    # def get_metric(self,letter,cntr):
         #returns a double from 0 to 1, 
         #indicating area of "sketch" within bounds of bubble
         # bubble = self.bubble_dict[letter]
@@ -202,11 +204,13 @@ class Bubble:
         # #normalize the letter & cntr
         # cntr_norm = self.get_norm_cnt(cntr)
         # cntr_norm = self.__scale_to_norm(cntr_norm)
-
-        self.__find_holes("a")
+        # to_ret += point_inside(point,cntr) if 
+        # print(self.__find_holes(letter))
         
         
-        
+        #for every rotation, for every size, find maximum match 
+           #for each segment of the bubble, check that there is a point lying inside, 
+           #subtract points that are outside the contour
             
 
 
@@ -236,39 +240,80 @@ class Bubble:
         y_sorted = sorted(point_list,key=lambda y: y[1])
         sorted_dict = {i: xtrm_point_list[i] for i in y_sorted}
         return sorted_dict
-    
-def main():
-    bubble = Bubble("bubbles.json")
-    
-    img = cv.imread("images/001.jpg",0)
-    ret, thresh = cv.threshold(img, 127, 255, 0)
-    cnt, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)\
-    
-    
-    cnt_norm = bubble.get_norm_cnt(cnt)
-    cnt_scaled = bubble.scale_cnt(cnt_norm,2)
-    cnt_moved = bubble.move_bubble(cnt_scaled, (500, 500))
-    to_draw_1 = bubble.move_bubble(cnt_norm,(500,500))
-    #sorted_cnt = bubble.sort_cntrs(cnt_moved)
 
-    bubble.get_metric('a',to_draw_1[2])
-    # for i in range(len(sorted_cnt)):
-    #     vis = bubble.draw_cnt(img,sorted_cnt, index = i)
+class Lines:
+    def __json_to_dict(self, file_name):
+        with open(file_name) as json_file:
+            lines_dict = json.load(json_file)
+        to_ret = {}
+        for key,val in lines_dict.items():
+            for i in range(len(val)) :
+                val[i] = (tuple(val[i][0]),tuple(val[i][1]))
+            to_ret[key] = val
+        return to_ret
+    def __init__(self, json_file):
+        self.letter_dict = self.__json_to_dict(json_file)
     
+    def get_lines(self, char):
+        return self.letter_dict[char]
     
-    #cv.circle(vis, (1500, 1500),8, (0, 255, 0) -1)
-    # cv.circle(vis, (1500, 10), 8, (0, 0, 255), -1)
-    # cv.imshow("hi", vis)
-    #new_img = cv.cvtColor(np.ones_like(img), cv.COLOR_GRAY2BGR)
-    #point_list = [bubble.get_extreme(i) for i in to_draw_1]
+    def __cart2pol(self, x, y):
+            theta = np.arctan2(y, x)
+            rho = np.hypot(x, y)
+            return theta, rho
+        
+    def __pol2cart(self, theta, rho):
+        x = rho * np.cos(theta)
+        y = rho * np.sin(theta)
+        return x, y
 
-    #draw bubbles with dots
-    # for i in range(1, len(to_draw_1)):
-    #     print(bubble.get_extreme(to_draw_1[i]))
-    #     cv.circle(vis, bubble.get_extreme(to_draw_1[i]), 8, (0, 0, 255), -1)
-    # cv.imshow("window", vis)
-    # cv.waitKey()
-    # bubble.get_prob(cnt)
+    def move_lines(self, lines,x,y):
+        to_ret = []
+        for pt1, pt2 in lines:
+            pt1 = (int(pt1[0]+x),int(pt1[1]+y))
+            pt2 = (int(pt2[0]+x),int(pt2[1]+y))
+            to_ret.append((pt1, pt2))
+        return to_ret
 
+    def scale_lines(self, lines, scale):
+        to_ret = []
+        for pt1, pt2 in lines:
+            pt1 = (int(pt1[0]*scale),int(pt1[1]*scale))
+            pt2 = (int(pt2[0]*scale),int(pt2[1]*scale))
+            to_ret.append((pt1, pt2))
+        return to_ret
+    
+    def rotate_lines(self, bubble, lines, angle):
+        to_ret = []
+        for pt1, pt2 in lines:
+            thetas, rhos = bubble.cart2pol(pt1[0], pt1[1])
+            
+            thetas = np.rad2deg(thetas)
+            thetas = (thetas + angle) % 360
+            thetas = np.deg2rad(thetas)
 
-main()
+            xs, ys = bubble.pol2cart(thetas, rhos)
+            pt1 = (xs,ys)
+            
+            thetas, rhos = bubble.cart2pol(pt2[0], pt2[1])
+            
+            thetas = np.rad2deg(thetas)
+            thetas = (thetas + angle) % 360
+            thetas = np.deg2rad(thetas)
+
+            xs, ys = bubble.pol2cart(thetas, rhos)
+            pt2 = (xs,ys)
+            to_ret.append((pt1, pt2))
+        return to_ret
+    
+    def draw_lines(self, lines, img, window_name = 'lines',copy = True):
+        if copy:
+            h,w = img.shape
+            vis = np.ones((h, w), np.float32)
+            vis = cv.cvtColor(vis, cv.COLOR_GRAY2BGR)
+        else: vis = img
+        for pt1, pt2 in lines:
+            cv.line(vis, pt1, pt2, (0,0,255), 1)
+        cv.imshow(window_name,vis)
+        cv.waitKey()
+        return vis
