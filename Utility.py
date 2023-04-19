@@ -13,12 +13,48 @@ class Bubble:
             val = tuple(val)
             to_ret[key] = val
         return to_ret
-    
+
     def __init__(self, json_file):
         self.bubble_dict = self.__json_to_dict(json_file)
+        self.letter_match = {
+            ".": "dot", 
+            "A": "cap_a",
+            "B": "cap_b",
+            "C": "cap_c",
+            "D": "cap_d",
+            "E": "cap_e",
+            "F": "cap_f",
+            "G": "cap_g",
+            "H": "cap_h",
+            "I": "cap_i",
+            "J": "cap_j",
+            "K": "cap_k",
+            "L": "cap_l",
+            "M": "cap_m",
+            "N": "cap_n",
+            "O": "cap_o",
+            "P": "cap_p",
+            "Q": "cap_q",
+            "R": "cap_r",
+            "S": "cap_s",
+            "T": "cap_t",
+            "U": "cap_u",
+            "V": "cap_s",
+            "W": "cap_w",
+            "X": "cap_x",
+            "Y": "cap_y",
+            "Z": "cap_z",
+            "*": "astric",
+            "?":"question_mark", 
+            "\"":"quotation",
+            ":": "colon"
+        }
     
     def get_cnt(self,char):
-        return self.bubble_dict[char]
+        if char in self.letter_match:
+            return self.bubble_dict[self.letter_match[char]]
+        else:
+            return self.bubble_dict[char]
     
     def get_norm_cnt(self,cnt,return_shift = False):
         cx = 0
@@ -63,23 +99,38 @@ class Bubble:
         y = rho * np.sin(theta)
         return x, y
     
-    def __get_height(self, cnt):
+    def __get_height_sketch_cnt(self, cnt):
+        #helper for sort_cntrs (deals with sketches)
         transpose= np.transpose(cnt)
         height = np.amax(transpose, 2) - np.amin(transpose, 2)
         return height[1]
     
-    def __max_height(self, cntrs):
+    def max_height_sketch(self, cntrs):
+        #helper for sort_cntrs (deals with sketches)
         # Calculate maximum rectangle height
         max_height = 0
         for i in range(1, len(cntrs)-2):#for weird paper lines, get rid of last 2
-            h = self.__get_height(cntrs[i])
+            h = self.__get_height_sketch_cnt(cntrs[i])
             # print(h)
             if h > max_height: max_height = h
-        print(max_height)
+        # print(max_height)
         return max_height
+        
+    def __y_sorted(self,cntrs):
+        #helper for sort_cntrs (deals with sketches)
+        xtrm_point_list = {}
+        for i in range(1, len(cntrs)):
+            #xtrm_point_list[self.get_extreme(cntrs[i])] = cntrs[i]
+            xtrm_point_list[self.get_extreme(cntrs[i])] = i
+        point_list = xtrm_point_list.keys()
+        #x_sorted = sorted(point_list,key=lambda x: x[0])
+        y_sorted = sorted(point_list,key=lambda y: y[1])
+        sorted_dict = {i: xtrm_point_list[i] for i in y_sorted}
+        return sorted_dict
 
     def sort_cntrs(self, cntrs):
-        max_height = self.__max_height(cntrs)
+        #sorts the incoming sketch by line and from left to right 
+        max_height = self.max_height_sketch(cntrs)
         # Sort the contours by y-value
         by_y = self.__y_sorted(cntrs)
         # print(by_y)
@@ -100,9 +151,11 @@ class Bubble:
         # This will now sort automatically by line then by x
         for key, val in by_line.items(): 
             x_sorted= sorted(val,key=lambda x: x[0])
+            temp = []
             for point in x_sorted:
-                contours_sorted.append(cntrs[by_y[point]])
-        return contours_sorted
+                temp.append(cntrs[by_y[point]])
+            contours_sorted.append(temp)
+        return contours_sorted, max_height
 
     def rotate_cnt(self, cnt, angle):
         # a_rotated = bubble.rotate_cnt(a_cnt, 90)
@@ -123,10 +176,13 @@ class Bubble:
             cnt_rotated[i-1][:, 0, 1] = ys
         return cnt_rotated
     
-    def draw_cnt(self,img,cnt,index = -1, window_name = 'cnt'):
-        h,w = img.shape
-        vis = np.ones((h, w), np.float32)
-        vis = cv.cvtColor(vis, cv.COLOR_GRAY2BGR)
+    def draw_cnt(self,img,cnt,index = -1, window_name = 'cnt', copy = True):
+        if copy:
+            h,w = img.shape
+            vis = np.ones((h, w), np.float32)
+            vis = cv.cvtColor(vis, cv.COLOR_GRAY2BGR)
+        else: 
+            vis = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
         cv.drawContours(vis,cnt,index,(0,0,0),6)
         cv.imshow(window_name, vis)
         cv.waitKey()
@@ -141,7 +197,7 @@ class Bubble:
         cv.imshow(window_name, vis)
         cv.waitKey()
     
-    def __get_extreme(self,cnt):
+    def get_extreme(self,cnt):
         extLeft = tuple(cnt[cnt[:, :, 0].argmin()][0])
         extTop = tuple(cnt[cnt[:, :, 1].argmin()][0])
         return (extLeft[0],extTop[1])
@@ -149,7 +205,7 @@ class Bubble:
     def __get_bubble_size(self, cntrs):
         #intakes a "letter" from bubble.dict (the whole list of contours for that letter)
         #loop through each cnt, find the extremeTop, save the most extreme top
-        #^^, find extremeBottom, save the most extreme Bottom 
+        #^^, extremeBottom, save the most extreme Bottom 
         minY = float('inf')
         minX = float('inf')
         maxY = float('-inf')
@@ -173,17 +229,25 @@ class Bubble:
         # print(scaling_factor)
         return tuple(self.scale_cnt(cntrs,200/scaling_factor)[0])
     
-    def __find_centroid(self,cnt):
+    def find_centroid(self,cnt): #for a single cntr
+        tot_mass = sum([len(i) for i in cnt])
+        cnt = cnt.astype(int)
+        M = cv.moments(cnt)
+        cx = int(M["m10"] / M["m00"])
+        cy = int(M["m01"] / M["m00"])
+        return (cx,cy), tot_mass
+    
+    def find_bubble_centroid(self, bub):
         cx = 0
         cy = 0
-        tot_mass = sum([len(i) for i in cnt])
-        for i in cnt:
+        tot_mass = sum([len(i) for i in bub])
+        for i in bub:
             M = cv.moments(i)
             cx += len(i) * int(M['m10']/M['m00'])
             cy += len(i) * int(M['m01']/M['m00'])
         cx = int(cx/tot_mass)
         cy = int(cy/tot_mass)
-        return (cx,cy)
+        return (cx,cy), tot_mass
     
     def find_holes(self, letter):
         bubble = self.bubble_dict[letter]
@@ -229,17 +293,6 @@ class Bubble:
     #         else:
     #             return -1
     #     return to_ret
-    
-    def __y_sorted(self,cntrs):
-        xtrm_point_list = {}
-        for i in range(1, len(cntrs)):
-            #xtrm_point_list[self.get_extreme(cntrs[i])] = cntrs[i]
-            xtrm_point_list[self.__get_extreme(cntrs[i])] = i
-        point_list = xtrm_point_list.keys()
-        #x_sorted = sorted(point_list,key=lambda x: x[0])
-        y_sorted = sorted(point_list,key=lambda y: y[1])
-        sorted_dict = {i: xtrm_point_list[i] for i in y_sorted}
-        return sorted_dict
 
 class Lines:
     def __json_to_dict(self, file_name):
