@@ -119,6 +119,72 @@ class Sketch:
             cnt_rotated[i-1][:, 0, 0] = xs
             cnt_rotated[i-1][:, 0, 1] = ys
         return cnt_rotated
+    
+    def combine_cntrs(self,cnt1:np.ndarray, cnt2:np.ndarray) -> tuple[np.ndarray,np.ndarray]:
+        """
+            Returns a single contour 
+
+            Requires two contours
+        """
+        # print()
+        pt_1 = cnt1[-1]
+        pt_2 = cnt2[0]
+        new_point = np.array([pt_1,pt_2])
+        combined_cntr = np.concatenate((cnt1,cnt2),axis = 0)
+        
+        return combined_cntr, new_point
+    
+    def find_holes(self, line: list[np.ndarray] ) -> list[int]:
+        """
+            Returns a list of 0's and 1's indicating 1 if a hole contour found in the line
+                and a list of the number of holes for each non hole cntr
+
+            Requires a single line of the sketch with contours from left to right
+        """
+        point_list = [tuple(i[0][0]) for i in line[1:]] #a list of points, first point in each contour 
+        is_hole_list = []
+        for point in point_list:
+            point = (int(point[0]),int(point[1]))
+            is_hole_list.append(sum([max(0,cv.pointPolygonTest(cntr, point, False)) for cntr in line[1:]]) > 0)
+
+        iter = 0
+        holes_list = [0]
+        while iter < len(is_hole_list):
+            if is_hole_list[iter] == 1:
+                holes_list[-1] += 1
+            else:
+                holes_list.append[0]
+            
+        return is_hole_list, holes_list
+    
+    def __remove_holes(self, line: list[np.ndarray]) -> list[np.ndarray]:
+        """
+            Returns a single line of the sketch with all holes removed maintaining order
+                ex. (a's, o's, b's, g's, e's, etc.)
+            
+            Requires a single line of the sketch with contours from left to right
+
+        """
+        is_hole_list,holes_list = self.find_holes(line)
+        for i in range(len(is_hole_list)):
+            if is_hole_list[i] == 1 : del line[i]
+        return line, holes_list
+    
+    def clean_sketch(self, sorted_sketch) -> list[np.ndarray]:
+        """
+            Returns list of individual contours in sketch by line from left to right
+                    removing all holes (ex. a's, o's, e's, g's) and combining disconnected contours (ex. I)
+
+            Requires sorted list of individual contours in sketch by line from left to right 
+                *use self.sort_cntrs to reach this point            
+        """
+        holes_list_lines = []
+        for i in range(1, len(sorted_sketch)):
+            sorted_sketch[i],holes_list = self.__remove_holes(sorted_sketch[i])
+            holes_list_lines.append(holes_list)
+        
+        return sorted_sketch,holes_list_lines
+    
 class Bubble:
     def __json_to_dict(self, file_name):
         with open(file_name) as json_file:
