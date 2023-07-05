@@ -1,6 +1,6 @@
 import cv2 as cv
 import numpy as np
-import random
+import randoms
 import json
 
 class Sketch:
@@ -183,8 +183,7 @@ class Sketch:
             sorted_sketch[i],holes_list = self.__remove_holes(sorted_sketch[i])
             holes_list_lines.append(holes_list)
         
-        return sorted_sketch,holes_list_lines
-    
+        return sorted_sketch,holes_list_lines    
 class Bubble:
     def __json_to_dict(self, file_name):
         with open(file_name) as json_file:
@@ -199,6 +198,7 @@ class Bubble:
 
     def __init__(self, json_file):
         self.bubble_dict = self.__json_to_dict(json_file)
+        
         self.sketch = Sketch()
         self.letter_match = {
             ".": "dot", 

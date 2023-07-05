@@ -105,11 +105,9 @@ class Matching:
         group_height = 0 #find tallest bubble in group
         scaled_bubbles = []
         scaled_lines = []
-        print(group)
         for letter in group:
             l_bubble = self.bubble.get_bubble(letter)
             h = self.find_bubble_height(l_bubble)
-            print(h)
             scaled_bubbles.append(l_bubble)
             scaled_lines.append(self.lines.get_lines(letter))
             group_height = h if h > group_height else group_height
@@ -144,24 +142,30 @@ class Matching:
         for line in moved_lines:
             vis = self.lines.draw_lines(line, img, copy = False, color=color)
     
-    def __is_intersected(self,pt_1: point_type,pt_2: point_type, line:tuple[point_type,point_type]) -> bool:
+    def __is_intersected(self,pt_1: point_type,pt_2: point_type, line:tuple[point_type,point_type], threshold:float = 20) -> bool:
         """
             Returns false if intersection is invalid
-
+                for an intersection to be valid the 2 lines must ALSO be close to perpendicular to each other (some degree of error allowed)
+            
             Requires 2 consecutive points on the sketch contour and a line from the intersecting lines list for the corresponding bubble
+            
         """
+        sketch_angle = np.rad2deg(np.arctan2(pt_1[1] - pt_2[1])/(pt_1[0]-pt_2[0]))
+        parallel_angle= np.rad2deg(np.arctan2(-(line[0][0]-line[1][0])/(line[0][1] - line[1][1])))
         ccw = lambda A,B,C : (C[1] - A[1]) * (B[0]-A[0]) > (B[1]-A[1])  * (C[0] - A[0])
-        return ccw(pt_1, line[0], line[1]) != ccw(pt_2, line[0], line[1]) and ccw(pt_1, pt_2, line[0]) != ccw(pt_1, pt_2, line[1])
+        return ccw(pt_1, line[0], line[1]) != ccw(pt_2, line[0], line[1]) and ccw(pt_1, pt_2, line[0]) != ccw(pt_1, pt_2, line[1]) \
+            and (sketch_angle < (parallel_angle + threshold) % 360 or sketch_angle > (parallel_angle - threshold)% 360)
         
     def find_intersections(self,moved_lines: list[lines_type], sketch_cntr: np.ndarray, ignored_lines:list[lines_type] = []) -> set:
         """
             TODO: fix this!!!
-                idea-- iterate through each segment of the sketch (hopefully in order of drawing),
+                idea-- iterate through each line segment of the sketch (hopefully in order of drawing),
                     then iterate through each intersecting line (also in order, beginning at the end of the last segments intersected line)
                     stop iterating when the segment ends and move on to the next segment 
                 ?? are the line segments ordered the way we want??? clockwise?? from top to bottom?? 
                 alternately we can order the lines ourselves in 2 sets (left to right and up to down)
-
+                TODO: find the starting point of the sketch [0] and locate the closest points in the closed bubble to this point
+                      then start from these 2 locations on the bubble and travel in opposite directions (parallel) around the bubble 
             Returns a subset of the intersecting lines which have been successfully intersected 
             
             Requires a list of moved bubbles and moved lines which directly overlay the sketch_cntr
@@ -169,7 +173,47 @@ class Matching:
                 *use match_by_group_height() to reach this point
 
         """
+        # t_line = 0#index of current intersecting line from the top
+        # b_line = 0#index of current intersecting line from the bottom 
         intersected_lines = set()
+        
+        # #find the line which is closest to the sketch start
+        # sketch_start = sketch_cntr[0]
+        # lines_start = 0
+        # for letter_lines in moved_lines:
+        #     for lines in letter_lines:
+        #         if lines not in ignored_lines:
+                    
+                        
+                        
+                        
+            
+        # for i in range(1,len(sketch_cntr)): #loop through every line segment in the sketch 
+        #     pt_1 = np.transpose(sketch_cntr[i-1]) 
+        #     pt_2 = np.transpose(sketch_cntr[i])
+        #     print("p1 = ", pt_1)
+        #     print("p1 = ", [pt_1[0],pt_1[1]])
+        #     print("p2 = ", pt_2)
+        #     print("p2 = ", [pt_2[0],pt_2[1]])
+        #     midpoint = np.array([[(pt_1[0][0] + pt_2[0][0])/2],[(pt_1[1][0] + pt_2[1][0])/2]]) 
+        #     pt_1_trans = pt_1 - midpoint
+        #     pt_2_trans = pt_2 - midpoint
+        #     slope = (pt_2[1][0] - pt_1[1][0])/(pt_2[0][0] - pt_1[0][0]) #calculate slop of this line segment
+        #     theta = np.arctan(slope)
+        #     c, s = np.cos(theta), np.sin(theta)
+        #     rot_matrix = np.array(((c, -s), (s, c)))#calculate the transformation matrix 
+        #     pt_1_trans = np.matmul(rot_matrix,pt_1_trans) + midpoint
+        #     pt_2_trans = np.matmul(rot_matrix,pt_2_trans) + midpoint
+            
+        #     for i in 
+            
+            
+            
+            #check next intersecting line (__is_intersected)
+            #if __is_insersected returns false
+                #then transform the intersecting line and check if it is within the range of the line segment
+            
+        #-----------------------------------------old version-----------------------------------------------#
         for letter_lines in moved_lines:
             for lines in letter_lines:
                 if lines not in ignored_lines:
@@ -239,11 +283,14 @@ class Matching:
             # print(cntrs_list[i])
         return moved_contours
     
-    def score_heuristic(self,remaining_truth:str, remaining_cntrs: list[np.ndarray], img):
+    def score_heuristic(self,remaining_truth:str, remaining_cntrs: list[np.ndarray], img:np.ndarray):
         """
+            TODO: use naive segmentation for scoring the bubbles
+            
             Returns a float score of the estimated match between the remaining unmatched letters and unmatched contours
 
-            Requires a string of remaining unmatched letters and contours 
+            Requires a string of remaining unmatched letters and contours
+                and a list of segments 
         """
         moved_cntrs = self.__neighbhor_cntrs(copy.deepcopy(remaining_cntrs)) #move all remaining cntrs together 
         cntr = moved_cntrs[0]
@@ -251,19 +298,13 @@ class Matching:
         for i in range(1, len(moved_cntrs)):
             cntr, new_point = self.sketch.combine_cntrs(cntr, moved_cntrs[i]) 
             ignore_lines.append(new_point)
-        cv.drawContours(img,cntr,-1,(0,255,0))
-        (hx,hy), hmass = self.sketch.find_centroid(cntr)
-        cv.circle(img, (hx, hy),10, (0,255,0),-1)
-        cv.imshow("circle",img)
-        cv.waitKey()
-        start = time.time()
-        moved_bubbles, moved_lines = self.match_group_by_height(cntr, remaining_truth) 
-        end1 = time.time()
-        print(end1 - start)
-        end1 = time.time()
-        #intersected_lines = self.find_intersections(moved_lines, cntr)
-        end2 = time.time()
-        print(end2 - end1)
+        moved_bubbles, moved_lines = self.match_group_by_height(cntr, remaining_truth)
+        
+        
+        #for each line segment in sketch
+            #for each chunk
+                #check if endpoints of the line segment are IN the chunk
+                #check slope of chunks
         
         self.draw_match(img,moved_bubbles,moved_lines)
         return 0 
@@ -490,7 +531,7 @@ def main():
     truth = "I like pears \n My name is Sam \n I do not have dysgraphia".strip()
     print(truth)
     
-    matcher = Matching("bubbles.json","lines.json")
+    matcher = Matching("jsons/bubbles.json","lines.json")
     matcher.match(img,truth)
     
     
