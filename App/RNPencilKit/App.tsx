@@ -44,6 +44,9 @@ const App: React.FC = () => {
   }
   return (
     <SafeAreaView style={styles.container}>
+      <Text style = {styles.text}>
+        Please write this sample text: {'\n'}
+      </Text>
       <PencilKitView ref={drawingRef} style={styles.container} />
       <Pressable onPress={handleClearDrawing} style={styles.clearBtn}>
         <Image source={Clear} resizeMode={'contain'} style={styles.icon} />

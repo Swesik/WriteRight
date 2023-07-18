@@ -34,6 +34,11 @@ RCT_EXPORT_MODULE(PencilKit)
 // Added below methods
 RCT_EXPORT_METHOD(clearDrawing: (nonnull NSNumber *)viewTag)
 {
+  NSLog(@"Writing image to png");
+  NSString *documentsDirectory = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
+  NSString *imageSubdirectory = [documentsDirectory stringByAppendingPathComponent:@"WrightRightImg"];
+  NSString *filePath = [imageSubdirectory stringByAppendingPathComponent:@"MyImageName.png"];
+  [UIImageJPEGRepresentation(self->_drawingImage, 1.0) writeToFile:filePath atomically:YES];
   NSLog(@"Clearing Drawing");
   [self clearDrawing];
 }
